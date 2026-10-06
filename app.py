@@ -51,7 +51,10 @@ def trains():
     source = request.args.get("source", "").strip().upper()
     destination = request.args.get("destination", "").strip().upper()
     if not source or not destination: return jsonify({"error": "Source and destination station codes are required."}), 400
-    journey_date = request.args.get("date", "").strip()\n    params = {"live": "true"}\n    if journey_date:\n        params["date"] = journey_date\n    _, p, s = railradar(f"/trains/between/{source}/{destination}", params)
+    journey_date = request.args.get("date", "").strip()
+    params = {"live": "true"}
+    if journey_date:
+        params["date"] = journey_date\n    _, p, s = railradar(f"/trains/between/{source}/{destination}", params)
     if s != 200: return jsonify(p), s
     d = data_of(p)
     return jsonify({"from": d.get("from"), "to": d.get("to"), "trains": d.get("trains", []), "data_mode": "RAILRADAR"})
@@ -84,8 +87,12 @@ def availability():
 def vacancy():
     return jsonify({"error": "Exact live berth-by-berth segment vacancy is not exposed by the current provider response. It returns availability status/counts, not the complete coach occupancy map. This app will not invent berth numbers.", "data_mode": "LIMITED_BY_PROVIDER"}), 501
 
+@app.get("/api/health")
+def health():
+    return jsonify({"ok": bool(API_KEY), "provider": "RailRadar", "message": "API key configured" if API_KEY else "RAILRADAR_API_KEY is missing"})
+
 @app.get("/api/config")
-def health():\n    return jsonify({"ok": bool(API_KEY), "provider": "RailRadar", "message": "API key configured" if API_KEY else "RAILRADAR_API_KEY is missing"})\n\n@app.get("/api/config")\ndef config():
+def config():
     return jsonify({"railradar_configured": bool(API_KEY), "provider": "RailRadar", "exact_segment_berth_data": False})
 
 if __name__ == "__main__":
