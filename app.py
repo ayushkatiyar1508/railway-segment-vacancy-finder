@@ -1,92 +1,92 @@
+import os
+from datetime import date
 from flask import Flask, render_template, request, jsonify
+import requests
 
 app = Flask(__name__)
+API_BASE = "https://api.railradar.in/v1"
+API_KEY = os.getenv("RAILRADAR_API_KEY", "").strip()
+TIMEOUT = 12
 
-TRAINS = [{
-    "number": "12345", "name": "Example Express", "source": "NDLS", "destination": "LKO",
-    "stations": [
-        {"code":"NDLS","name":"New Delhi","day":1,"arr":"06:00","dep":"06:20"},
-        {"code":"GZB","name":"Ghaziabad","day":1,"arr":"07:05","dep":"07:10"},
-        {"code":"ALJN","name":"Aligarh Jn","day":1,"arr":"08:20","dep":"08:25"},
-        {"code":"CNB","name":"Kanpur Central","day":1,"arr":"12:30","dep":"12:40"},
-        {"code":"LKO","name":"Lucknow","day":1,"arr":"14:15","dep":"14:25"}
-    ]
-}]
+def railradar(path, params=None):
+    if not API_KEY:
+        return None, {"error": "RAILRADAR_API_KEY is not configured on the server."}, 500
+    try:
+        r = requests.get(f"{API_BASE}{path}", headers={"Authorization": f"Bearer {API_KEY}", "Accept": "application/json"}, params=params, timeout=TIMEOUT)
+    except requests.RequestException as exc:
+        return None, {"error": f"RailRadar connection failed: {exc}"}, 502
+    try:
+        payload = r.json()
+    except ValueError:
+        payload = {"error": f"RailRadar returned HTTP {r.status_code}"}
+    if not r.ok or payload.get("success") is False:
+        err = payload.get("error")
+        msg = err.get("message") if isinstance(err, dict) else err
+        return r, {"error": msg or f"RailRadar returned HTTP {r.status_code}", "provider_status": r.status_code}, (502 if r.status_code >= 500 else r.status_code)
+    return r, payload, 200
 
-DEMO_BOOKINGS = [
-    {"coach":"B1","berth":"21","from":"NDLS","to":"ALJN"},
-    {"coach":"B1","berth":"22","from":"CNB","to":"LKO"},
-    {"coach":"B2","berth":"36","from":"NDLS","to":"ALJN"},
-    {"coach":"B2","berth":"40","from":"GZB","to":"CNB"}
-]
-
-def train_between(source, destination):
-    source, destination = source.upper(), destination.upper()
-    return [t for t in TRAINS
-            if source in [s["code"] for s in t["stations"]]
-            and destination in [s["code"] for s in t["stations"]]
-            and [s["code"] for s in t["stations"]].index(source)
-                < [s["code"] for s in t["stations"]].index(destination)]
-
-def segment_vacancy(train, source, destination):
-    codes = [s["code"] for s in train["stations"]]
-    si, di = codes.index(source), codes.index(destination)
-    route = codes[si:di+1]
-    inventory = [{"coach":c,"berth":str(b),"bookings":[]}
-                 for c in ("B1","B2","B3") for b in range(1,9)]
-    for seat in inventory:
-        seat["bookings"] = [x for x in DEMO_BOOKINGS
-                            if x["coach"]==seat["coach"] and x["berth"]==seat["berth"]]
-    result=[]
-    for seat in inventory:
-        overlap=False
-        for b in seat["bookings"]:
-            if b["from"] in route and b["to"] in route:
-                a,z=route.index(b["from"]),route.index(b["to"])
-                if a < z and a < len(route)-1 and z > 0:
-                    overlap=True
-        if not overlap:
-            result.append({"coach":seat["coach"],"berth":seat["berth"],
-                           "status":"VACANT","from":source,"to":destination})
-    return result
+def data_of(payload):
+    return payload.get("data", payload)
 
 @app.get("/")
 def index():
     return render_template("index.html")
 
+@app.get("/api/stations")
+def stations():
+    q = request.args.get("q", "").strip()
+    if len(q) < 2: return jsonify({"stations": []})
+    _, p, s = railradar("/lookup/search/stations", {"q": q, "limit": 10})
+    return jsonify({"stations": data_of(p), "data_mode": "RAILRADAR"}) if s == 200 else (jsonify(p), s)
+
+@app.get("/api/train-search")
+def train_search():
+    q = request.args.get("q", "").strip()
+    if len(q) < 2: return jsonify({"trains": []})
+    _, p, s = railradar("/lookup/search/trains", {"q": q, "limit": 10})
+    return jsonify({"trains": data_of(p), "data_mode": "RAILRADAR"}) if s == 200 else (jsonify(p), s)
+
 @app.get("/api/trains")
-def api_trains():
-    source=request.args.get("source","").strip()
-    destination=request.args.get("destination","").strip()
-    if not source or not destination:
-        return jsonify({"error":"source and destination are required"}),400
-    return jsonify({"trains":train_between(source,destination)})
+def trains():
+    source = request.args.get("source", "").strip().upper()
+    destination = request.args.get("destination", "").strip().upper()
+    if not source or not destination: return jsonify({"error": "Source and destination station codes are required."}), 400
+    _, p, s = railradar(f"/trains/between/{source}/{destination}")
+    if s != 200: return jsonify(p), s
+    d = data_of(p)
+    return jsonify({"from": d.get("from"), "to": d.get("to"), "trains": d.get("trains", []), "data_mode": "RAILRADAR"})
 
 @app.get("/api/train/<number>")
-def api_train(number):
-    train=next((t for t in TRAINS if t["number"]==number),None)
-    if not train: return jsonify({"error":"Train not found in demo data"}),404
-    return jsonify(train)
-
-@app.get("/api/vacancy")
-def api_vacancy():
-    number=request.args.get("train")
-    source=request.args.get("source","").upper()
-    destination=request.args.get("destination","").upper()
-    train=next((t for t in TRAINS if t["number"]==number),None)
-    if not train: return jsonify({"error":"Train not found"}),404
-    codes=[s["code"] for s in train["stations"]]
-    if source not in codes or destination not in codes or codes.index(source)>=codes.index(destination):
-        return jsonify({"error":"Invalid route segment"}),400
-    return jsonify({"train":{"number":train["number"],"name":train["name"]},
-                     "source":source,"destination":destination,
-                     "vacant_berths":segment_vacancy(train,source,destination),
-                     "data_mode":"DEMO"})
+def train(number):
+    _, p, s = railradar(f"/trains/{number}")
+    return jsonify({"train": data_of(p), "data_mode": "RAILRADAR"}) if s == 200 else (jsonify(p), s)
 
 @app.get("/api/status/<number>")
-def api_status(number):
-    return jsonify({"train":number,"status":"LIVE_PROVIDER_NOT_CONNECTED",
-                    "message":"Connect an authorized/contracted train-running-status provider here."})
+def status(number):
+    _, p, s = railradar(f"/trains/{number}/live")
+    return jsonify({"status": data_of(p), "data_mode": "RAILRADAR"}) if s == 200 else (jsonify(p), s)
 
-if __name__=="__main__":
-    app.run(host="0.0.0.0",port=5000,debug=True)
+@app.get("/api/availability")
+def availability():
+    number = request.args.get("train", "").strip()
+    source = request.args.get("source", "").strip().upper()
+    destination = request.args.get("destination", "").strip().upper()
+    journey_date = request.args.get("journeyDate", "").strip() or date.today().isoformat()
+    class_code = request.args.get("classCode", "3A").strip().upper()
+    quota_code = request.args.get("quotaCode", "GN").strip().upper()
+    if not number or not source or not destination: return jsonify({"error": "Train number, source, and destination are required."}), 400
+    _, p, s = railradar(f"/trains/{number}/seats", {"journeyDate": journey_date, "source": source, "destination": destination, "classCode": class_code, "quotaCode": quota_code})
+    if s in (401, 403):
+        p["message"] = "Seat availability is not enabled for the current RailRadar Free/Sandbox plan. The API connection works, but this feature may require a paid plan."
+    return jsonify({"availability": data_of(p), "data_mode": "RAILRADAR"}) if s == 200 else (jsonify(p), s)
+
+@app.get("/api/vacancy")
+def vacancy():
+    return jsonify({"error": "Exact live berth-by-berth segment vacancy is not exposed by the current provider response. It returns availability status/counts, not the complete coach occupancy map. This app will not invent berth numbers.", "data_mode": "LIMITED_BY_PROVIDER"}), 501
+
+@app.get("/api/config")
+def config():
+    return jsonify({"railradar_configured": bool(API_KEY), "provider": "RailRadar", "exact_segment_berth_data": False})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)
