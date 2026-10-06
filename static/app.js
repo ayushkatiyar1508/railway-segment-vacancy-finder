@@ -1,21 +1,9 @@
-async function findTrains(){
- const s=document.querySelector("#source").value.trim(),d=document.querySelector("#destination").value.trim(),box=document.querySelector("#trains");
- box.innerHTML="Searching...";
- const r=await fetch(`/api/trains?source=${encodeURIComponent(s)}&destination=${encodeURIComponent(d)}`),data=await r.json();
- if(!r.ok)return box.innerHTML=`<p class="error">${data.error}</p>`;
- box.innerHTML=data.trains.length?data.trains.map(t=>`<div class="train"><b>${t.number}</b> — ${t.name}<br>${t.source} → ${t.destination}</div>`).join(""):"<p>No trains in demo data.</p>";
-}
-async function checkVacancy(){
- const t=document.querySelector("#train").value.trim(),s=document.querySelector("#vfrom").value.trim().toUpperCase(),d=document.querySelector("#vto").value.trim().toUpperCase(),box=document.querySelector("#vacancy");
- box.innerHTML="Checking...";
- const r=await fetch(`/api/vacancy?train=${encodeURIComponent(t)}&source=${encodeURIComponent(s)}&destination=${encodeURIComponent(d)}`),data=await r.json();
- if(!r.ok)return box.innerHTML=`<p class="error">${data.error}</p>`;
- box.innerHTML=`<p><b>${data.train.number} ${data.train.name}</b> · ${s} → ${d}</p>`+
- (data.vacant_berths.length?`<div class="seats">${data.vacant_berths.map(x=>`<span>${x.coach}-${x.berth}</span>`).join("")}</div>`:"<p>No demo vacant berths found.</p>")+
- `<small>Mode: ${data.data_mode}</small>`;
-}
-async function status(){
- const n=document.querySelector("#statusTrain").value.trim(),box=document.querySelector("#status");
- const r=await fetch(`/api/status/${encodeURIComponent(n)}`);box.textContent=JSON.stringify(await r.json(),null,2);
-}
-findTrains();checkVacancy();
+const $=id=>document.getElementById(id);const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};$("journeyDate").value=today();$("availabilityDate").value=today();
+function debounce(fn,w=250){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),w)}}
+function stationAuto(id,cid,bid){const i=$(id),c=$(cid),b=$(bid);i.addEventListener("input",debounce(async()=>{c.value="";let q=i.value.trim();if(q.length<2){b.innerHTML="";return}let r=await fetch("/api/stations?q="+encodeURIComponent(q)),d=await r.json();b.innerHTML=r.ok?(d.stations||[]).map(s=>'<button class="suggestion" data-c="'+esc(s.code)+'" data-n="'+esc(s.name)+'"><b>'+esc(s.name)+'</b><span>'+esc(s.code)+(s.city?" · "+esc(s.city):"")+"</span></button>").join(""):'<div class="suggestion error">'+esc(d.error)+'</div>';b.querySelectorAll("button").forEach(x=>x.onclick=()=>{i.value=x.dataset.n;c.value=x.dataset.c;b.innerHTML=""})},250))}
+stationAuto("source","sourceCode","sourceSuggestions");stationAuto("destination","destinationCode","destinationSuggestions");
+$("trainSearch").addEventListener("input",debounce(async()=>{let q=$("trainSearch").value.trim(),b=$("trainSuggestions");if(q.length<2){b.innerHTML="";return}let r=await fetch("/api/train-search?q="+encodeURIComponent(q)),d=await r.json();b.innerHTML=r.ok?(d.trains||[]).map(t=>'<button class="suggestion" data-n="'+esc(t.number)+'"><b>'+esc(t.number)+" — "+esc(t.name)+"</b><span>"+esc(t.source||"")+" → "+esc(t.destination||"")+"</span></button>").join(""):'<div class="suggestion error">'+esc(d.error)+'</div>';b.querySelectorAll("button").forEach(x=>x.onclick=()=>{$("trainSearch").value=x.dataset.n;$("statusTrain").value=x.dataset.n;$("availabilityTrain").value=x.dataset.n;b.innerHTML=""})},250));
+async function findTrains(){let s=$("sourceCode").value||$("source").value.trim().toUpperCase(),d=$("destinationCode").value||$("destination").value.trim().toUpperCase(),b=$("trains");if(!s||!d){b.innerHTML='<p class="error">Select both stations.</p>';return}b.innerHTML="Searching...";let r=await fetch('/api/trains?source='+encodeURIComponent(s)+'&destination='+encodeURIComponent(d)),x=await r.json();if(!r.ok){b.innerHTML='<p class="error">'+esc(x.error)+'</p>';return}b.innerHTML=(x.trains||[]).map(t=>{let tr=t.train||{},f=t.from||{},to=t.to||{};return '<div class="train"><b>'+esc(tr.number)+' — '+esc(tr.name)+'</b><div>'+esc(f.departure||"")+" → "+esc(to.arrival||"")+'</div><button onclick="selectTrain(''+esc(tr.number)+'',''+esc(s)+'',''+esc(d)+'')">Use this train</button></div>'}).join("")||"<p>No trains found.</p>"}
+function selectTrain(n,s,d){$("availabilityTrain").value=n;$("availabilityFrom").value=s;$("availabilityTo").value=d;$("statusTrain").value=n}
+async function status(){let n=$("statusTrain").value.trim(),b=$("status");if(!n)return;b.innerHTML="Loading...";let r=await fetch("/api/status/"+encodeURIComponent(n)),x=await r.json();b.innerHTML=r.ok?'<pre>'+esc(JSON.stringify(x.status,null,2))+'</pre>':'<p class="error">'+esc(x.error)+'</p>'}
+async function checkAvailability(){let n=$("availabilityTrain").value.trim(),s=$("availabilityFrom").value.trim().toUpperCase(),d=$("availabilityTo").value.trim().toUpperCase(),dt=$("availabilityDate").value,cc=$("classCode").value,qc=$("quotaCode").value,b=$("availability");if(!n||!s||!d||!dt){b.innerHTML='<p class="error">Fill all fields.</p>';return}b.innerHTML="Checking...";let q=new URLSearchParams({train:n,source:s,destination:d,journeyDate:dt,classCode:cc,quotaCode:qc}),r=await fetch("/api/availability?"+q),x=await r.json();if(!r.ok){b.innerHTML='<p class="error">'+esc(x.message||x.error)+'</p>';return}b.innerHTML='<pre>'+esc(JSON.stringify(x.availability,null,2))+'</pre>'}
