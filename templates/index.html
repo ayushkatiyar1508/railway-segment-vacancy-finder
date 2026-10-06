@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Railway Seat Finder</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main class="container">
+<header><div class="badge">RAILWAY TOOL</div><h1>Find trains & segment-wise vacant berths</h1>
+<p>Search a route, then check berth availability for the exact segment.</p></header>
+<section class="card"><h2>1. Find trains</h2><div class="grid">
+<label>From<input id="source" value="NDLS" placeholder="Station code e.g. NDLS"></label>
+<label>To<input id="destination" value="ALJN" placeholder="Station code e.g. ALJN"></label>
+</div><button onclick="findTrains()">Search trains</button><div id="trains"></div></section>
+<section class="card"><h2>2. Segment vacancy</h2><div class="grid">
+<label>Train number<input id="train" value="12345"></label>
+<label>From<input id="vfrom" value="ALJN"></label>
+<label>To<input id="vto" value="CNB"></label>
+</div><button onclick="checkVacancy()">Find vacant berths</button><div id="vacancy"></div></section>
+<section class="card"><h2>3. Train running status</h2><div class="inline">
+<input id="statusTrain" value="12345"><button onclick="status()">Check status</button></div><pre id="status"></pre></section>
+<footer>Prototype uses demo data. Live railway data must be connected through a permitted/authorized source.</footer>
+</main><script src="/static/app.js"></script></body></html>
