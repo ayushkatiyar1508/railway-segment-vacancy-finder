@@ -51,8 +51,17 @@
         <div id="availability" aria-live="polite"></div>
       </section>
       <section class="card segment-card">
-        <div class="section-head"><span class="step">05</span><div><h2>Segment-wise berth finder</h2><p>Delhi → Aligarh → Kanpur, and other intermediate routes.</p></div></div>
-        <div class="notice"><strong>Important data limitation</strong><p>Exact berth-by-berth vacancy requires verified occupancy data for each route segment. The current provider integration does not confirm that data, so the app will not fabricate berth numbers. Standard seat availability may still be available depending on your provider plan.</p></div>
+        <div class="section-head"><span class="step">05</span><div><h2>Segment-wise availability planner</h2><p>Check reported ticket availability for each leg of a journey.</p></div></div>
+        <div class="notice"><strong>Important</strong><p>This checks ticket availability separately for each station-to-station leg. It cannot identify physically empty berths or guarantee a vacant seat. Use a valid ticket for every leg.</p></div>
+        <div class="grid">
+          <label for="segmentTrain">TRAIN NUMBER<input id="segmentTrain" inputmode="numeric" placeholder="e.g. 12952"></label>
+          <label for="segmentDate">JOURNEY DATE<input id="segmentDate" type="date"></label>
+          <label for="segmentStations">STATION CODES IN TRAVEL ORDER<input id="segmentStations" placeholder="NDLS, ALJN, CNB"><small>Enter the source, intermediate stops and destination, separated by commas.</small></label>
+          <label for="segmentClass">TRAVEL CLASS<select id="segmentClass"><option value="3A">AC 3 Tier (3A)</option><option value="SL">Sleeper (SL)</option><option value="2A">AC 2 Tier (2A)</option><option value="1A">AC First Class (1A)</option><option value="CC">AC Chair Car (CC)</option><option value="2S">Second Sitting (2S)</option><option value="3E">AC 3 Economy (3E)</option></select></label>
+          <label for="segmentQuota">QUOTA<select id="segmentQuota"><option value="GN">General</option><option value="TQ">Tatkal</option><option value="LD">Ladies</option><option value="SS">Senior Citizen</option></select></label>
+        </div>
+        <button class="primary" type="button" onclick="checkSegments()">Check each leg <span aria-hidden="true">→</span></button>
+        <div id="segments" aria-live="polite"></div>
       </section>
     </div>
     <footer><span>Railway Finder</span><span>Data availability depends on the configured provider and API plan.</span><a href="/api/health">API health</a></footer>
