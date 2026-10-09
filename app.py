@@ -193,6 +193,70 @@ def availability():
         return jsonify(payload), status_code
     return jsonify({"availability": data_of(payload), "data_mode": "RAILRADAR"})
 
+@app.get("/api/segment-availability")
+def segment_availability():
+    number = request.args.get("train", "").strip()
+    raw_stations = request.args.get("stations", "").strip()
+    journey_date = request.args.get("journeyDate", "").strip() or date.today().isoformat()
+    class_code = request.args.get("classCode", "3A").strip().upper()
+    quota_code = request.args.get("quotaCode", "GN").strip().upper()
+
+    if not valid_train(number):
+        return jsonify({"error": "Enter a valid train number."}), 400
+    stations = [item.strip().upper() for item in raw_stations.split(",") if item.strip()]
+    if len(stations) < 2:
+        return jsonify({"error": "Enter at least two station codes, in travel order, separated by commas."}), 400
+    if len(stations) > 12:
+        return jsonify({"error": "Use at most 12 stations per route check."}), 400
+    if any(not valid_station(code) for code in stations):
+        return jsonify({"error": "Station codes must be 2–8 letters/numbers. Use official station codes."}), 400
+    if len(set(stations)) != len(stations):
+        return jsonify({"error": "A station appears more than once. Check the route order."}), 400
+    try:
+        date.fromisoformat(journey_date)
+    except ValueError:
+        return jsonify({"error": "Journey date must be in YYYY-MM-DD format."}), 400
+    if class_code not in CLASS_CODES:
+        return jsonify({"error": "Unsupported class code."}), 400
+    if quota_code not in QUOTA_CODES:
+        return jsonify({"error": "Unsupported quota code."}), 400
+
+    legs = []
+    for source, destination in zip(stations, stations[1:]):
+        payload, status_code = provider_get(
+            f"/trains/{number}/seats",
+            {
+                "journeyDate": journey_date,
+                "source": source,
+                "destination": destination,
+                "classCode": class_code,
+                "quotaCode": quota_code,
+            },
+        )
+        if status_code != 200:
+            legs.append({
+                "from": source, "to": destination, "checked": False,
+                "error": payload.get("error", "Availability could not be checked."),
+                "provider_status": payload.get("provider_status"),
+            })
+            continue
+        availability_data = data_of(payload)
+        legs.append({
+            "from": source, "to": destination, "checked": True,
+            "availability": availability_data,
+        })
+
+    return jsonify({
+        "train": number,
+        "journeyDate": journey_date,
+        "classCode": class_code,
+        "quotaCode": quota_code,
+        "legs": legs,
+        "note": "Each leg shows the provider's reported ticket availability, not physical berth occupancy. Availability can change; book a valid ticket for each leg.",
+        "data_mode": "RAILRADAR",
+    })
+
+
 @app.get("/api/vacancy")
 def vacancy():
     return jsonify({
