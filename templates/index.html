@@ -1,6 +1,62 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Indian Railway Finder</title><link rel="stylesheet" href="/static/style.css"></head><body><main class="container"><header><div class="badge">LIVE RAILWAY DATA</div><h1>Indian Railway Finder</h1><p>Search stations by name, find trains, check live running status and availability.</p></header>
-<section class="card"><h2>1. Find trains</h2><div class="grid"><div class="autocomplete"><label>From<input id="source" autocomplete="off" placeholder="Type station name, e.g. Delhi"><input id="sourceCode" type="hidden"><div id="sourceSuggestions" class="suggestions"></div></div><div class="autocomplete"><label>To<input id="destination" autocomplete="off" placeholder="Type station name, e.g. Kanpur"><input id="destinationCode" type="hidden"><div id="destinationSuggestions" class="suggestions"></div></div><label>Date<input id="journeyDate" type="date"></label></div><button onclick="findTrains()">Search trains</button><div id="trains"></div></section>
-<section class="card"><h2>2. Search train by name or number</h2><div class="autocomplete"><input id="trainSearch" autocomplete="off" placeholder="e.g. Vande Bharat, Shatabdi, 12952"><div id="trainSuggestions" class="suggestions"></div></div></section>
-<section class="card"><h2>3. Live running status</h2><div class="inline"><input id="statusTrain" placeholder="Train number"><button onclick="status()">Check live status</button></div><div id="status"></div></section>
-<section class="card"><h2>4. Seat availability</h2><div class="grid"><label>Train number<input id="availabilityTrain" placeholder="e.g. 12952"></label><label>From<input id="availabilityFrom" placeholder="NDLS"></label><label>To<input id="availabilityTo" placeholder="CNB"></label><label>Date<input id="availabilityDate" type="date"></label><label>Class<select id="classCode"><option>3A</option><option>SL</option><option>2A</option><option>1A</option><option>CC</option><option>2S</option></select></label><label>Quota<select id="quotaCode"><option value="GN">General</option><option value="TQ">Tatkal</option></select></label></div><button onclick="checkAvailability()">Check availability</button><div id="availability"></div></section>
-<section class="card"><h2>5. Segment-wise berth finder</h2><p class="notice">Exact live berth numbers require berth-level occupancy data. We will add this only when an authorized provider exposes that data.</p></section><footer>Powered by RailRadar API.</footer></main><script src="/static/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101828">
+  <meta name="description" content="Search Indian railway routes, train details, running status and seat availability using an authorized data provider.">
+  <title>Railway Finder | Route & Seat Availability</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="topbar"><a class="brand" href="/" aria-label="Railway Finder home"><span class="brand-mark">RF</span><span>Railway Finder</span></a><span class="topbar-note">Route intelligence</span></div>
+  <main class="container">
+    <header class="hero">
+      <div class="eyebrow"><span class="pulse"></span> INDIAN RAILWAY TOOLKIT</div>
+      <h1>Plan your journey.<br><span>Know before you go.</span></h1>
+      <p>Search routes, explore trains, check running status and query seat availability from one place.</p>
+      <div class="hero-tags"><span>Station autocomplete</span><span>Train lookup</span><span>Live provider data</span></div>
+    </header>
+    <div class="layout">
+      <section class="card route-card">
+        <div class="section-head"><span class="step">01</span><div><h2>Find trains</h2><p>Choose stations and travel date.</p></div></div>
+        <div class="grid">
+          <div class="autocomplete"><label for="source">FROM</label><input id="source" autocomplete="off" placeholder="Search departure station"><input id="sourceCode" type="hidden"><div id="sourceSuggestions" class="suggestions"></div></div>
+          <div class="autocomplete"><label for="destination">TO</label><input id="destination" autocomplete="off" placeholder="Search arrival station"><input id="destinationCode" type="hidden"><div id="destinationSuggestions" class="suggestions"></div></div>
+          <label for="journeyDate">TRAVEL DATE<input id="journeyDate" type="date"></label>
+        </div>
+        <button class="primary" type="button" onclick="findTrains()">Search trains <span aria-hidden="true">→</span></button>
+        <div id="trains" aria-live="polite"></div>
+      </section>
+      <section class="card">
+        <div class="section-head"><span class="step">02</span><div><h2>Find a train</h2><p>Search by train name or number.</p></div></div>
+        <div class="autocomplete"><label for="trainSearch">TRAIN NAME OR NUMBER</label><input id="trainSearch" autocomplete="off" placeholder="e.g. Vande Bharat or 12952"><div id="trainSuggestions" class="suggestions"></div></div>
+      </section>
+      <section class="card">
+        <div class="section-head"><span class="step">03</span><div><h2>Running status</h2><p>Look up a train's latest reported movement.</p></div></div>
+        <div class="inline"><input id="statusTrain" aria-label="Train number for running status" placeholder="Enter train number"><button type="button" onclick="status()">Check status</button></div>
+        <div id="status" aria-live="polite"></div>
+      </section>
+      <section class="card">
+        <div class="section-head"><span class="step">04</span><div><h2>Seat availability</h2><p>Check by route, date, class and quota.</p></div></div>
+        <div class="grid">
+          <label for="availabilityTrain">TRAIN NUMBER<input id="availabilityTrain" placeholder="e.g. 12952"></label>
+          <label for="availabilityFrom">FROM STATION CODE<input id="availabilityFrom" placeholder="e.g. NDLS"></label>
+          <label for="availabilityTo">TO STATION CODE<input id="availabilityTo" placeholder="e.g. CNB"></label>
+          <label for="availabilityDate">JOURNEY DATE<input id="availabilityDate" type="date"></label>
+          <label for="classCode">TRAVEL CLASS<select id="classCode"><option value="3A">AC 3 Tier (3A)</option><option value="SL">Sleeper (SL)</option><option value="2A">AC 2 Tier (2A)</option><option value="1A">AC First Class (1A)</option><option value="CC">AC Chair Car (CC)</option><option value="2S">Second Sitting (2S)</option><option value="3E">AC 3 Economy (3E)</option></select></label>
+          <label for="quotaCode">QUOTA<select id="quotaCode"><option value="GN">General</option><option value="TQ">Tatkal</option><option value="LD">Ladies</option><option value="SS">Senior Citizen</option></select></label>
+        </div>
+        <button class="primary" type="button" onclick="checkAvailability()">Check availability <span aria-hidden="true">→</span></button>
+        <div id="availability" aria-live="polite"></div>
+      </section>
+      <section class="card segment-card">
+        <div class="section-head"><span class="step">05</span><div><h2>Segment-wise berth finder</h2><p>Delhi → Aligarh → Kanpur, and other intermediate routes.</p></div></div>
+        <div class="notice"><strong>Important data limitation</strong><p>Exact berth-by-berth vacancy requires verified occupancy data for each route segment. The current provider integration does not confirm that data, so the app will not fabricate berth numbers. Standard seat availability may still be available depending on your provider plan.</p></div>
+      </section>
+    </div>
+    <footer><span>Railway Finder</span><span>Data availability depends on the configured provider and API plan.</span><a href="/api/health">API health</a></footer>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
