@@ -162,6 +162,37 @@ async function checkAvailability() {
     box.innerHTML = '<pre>' + esc(JSON.stringify(data.availability, null, 2)) + '</pre>';
   } catch (error) { showError(box, error.message); }
 }
+async function checkSegments() {
+  const train = $("segmentTrain").value.trim();
+  const stations = $("segmentStations").value.trim();
+  const journeyDate = $("segmentDate").value || today();
+  const box = $("segments");
+  if (!train || !stations) {
+    showError(box, "Enter a train number and station codes in travel order.");
+    return;
+  }
+  box.innerHTML = "<p>Checking availability for each leg…</p>";
+  const query = new URLSearchParams({
+    train, stations, journeyDate,
+    classCode: $("segmentClass").value,
+    quotaCode: $("segmentQuota").value
+  });
+  try {
+    const data = await api("/api/segment-availability?" + query);
+    const legs = Array.isArray(data.legs) ? data.legs : [];
+    box.innerHTML = legs.map((leg, i) =>
+      '<article class="train"><b>Leg ' + (i + 1) + ': ' + esc(leg.from) + ' → ' + esc(leg.to) + '</b>' +
+      (leg.checked
+        ? '<p>Provider response</p><pre>' + esc(JSON.stringify(leg.availability, null, 2)) + '</pre>'
+        : '<p class="error">' + esc(leg.error || "Availability unavailable") + '</p>') +
+      '</article>'
+    ).join("") || "<p>No legs were returned.</p>";
+    box.insertAdjacentHTML("beforeend", '<p class="notice">' + esc(data.note || "Availability is provider-reported and may change.") + '</p>');
+  } catch (error) { showError(box, error.message); }
+}
+$("segmentDate").value = today();
+
 window.findTrains = findTrains;
 window.checkRunningStatus = checkRunningStatus;
 window.checkAvailability = checkAvailability;
+window.checkSegments = checkSegments;
