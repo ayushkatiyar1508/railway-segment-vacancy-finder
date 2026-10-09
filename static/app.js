@@ -17,7 +17,7 @@ function debounce(fn, wait = 250) {
   };
 }
 function stationCode(station) {
-  return String(station?.code ?? station?.stationCode ?? station?.station_code ?? station?.id ?? "").toUpperCase();
+  return String(station?.code ?? station?.stationCode ?? station?.station_code ?? station?.id ?? "");
 }
 function stationName(station) {
   return String(station?.name ?? station?.stationName ?? station?.station_name ?? station?.label ?? stationCode(station));
@@ -58,15 +58,12 @@ function wireStationAutocomplete(inputId, codeId, suggestionsId) {
         button.addEventListener("click", () => {
           const s = stations[Number(button.dataset.index)];
           input.value = stationName(s);
-          code.value = stationCode(s);
+          code.value = stationCode(s).toUpperCase();
           box.innerHTML = "";
         });
       });
     } catch (error) { showError(box, error.message); }
   }, 300));
-  input.addEventListener("change", () => {
-    if (!code.value) input.dataset.unselected = "true";
-  });
 }
 wireStationAutocomplete("source", "sourceCode", "sourceSuggestions");
 wireStationAutocomplete("destination", "destinationCode", "destinationSuggestions");
@@ -136,7 +133,7 @@ function selectTrain(number, source, destination) {
   $("availabilityTo").value = destination;
   $("statusTrain").value = number;
 }
-async function status() {
+async function checkRunningStatus() {
   const number = $("statusTrain").value.trim(), box = $("status");
   if (!number) { showError(box, "Enter a train number first."); return; }
   box.innerHTML = "<p>Loading live running status…</p>";
@@ -166,5 +163,5 @@ async function checkAvailability() {
   } catch (error) { showError(box, error.message); }
 }
 window.findTrains = findTrains;
-window.status = status;
+window.checkRunningStatus = checkRunningStatus;
 window.checkAvailability = checkAvailability;
